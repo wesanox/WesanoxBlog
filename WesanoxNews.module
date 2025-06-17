@@ -1,0 +1,442 @@
+<?php
+
+namespace ProcessWire;
+
+class WesanoxNews extends WireData implements Module, ConfigurableModule
+{
+    public static function getModuleInfo()
+    {
+        return array(
+            'title' => 'wesanox News Tool',
+            'summary' => 'A little News Tool for Processwire made by wesanox.',
+            'version' => '0.0.1',
+            'author' => 'Frittenfritze',
+            'icon' => 'newspaper-o',
+            'autoload' => true,
+            'installs' => ['ProcessWesanoxNews', 'FieldtypeDynamicOptions','WesanoxMatrixContent'],
+            'requires' => array(
+                'ProcessWire>=3.0.210',
+                'PHP>=8.0.0',
+                'WesanoxMatrixContent>=0.0.1'
+            ),
+        );
+    }
+
+    protected array $internal_modules = [
+        'FieldtypeDynamicOptions',
+    ];
+
+    protected array $external_modules = [
+        'WesanoxMatrixContent' => 'https://github.com/wesanox/WesanoxMatrixContent/archive/refs/heads/main.zip',
+    ];
+
+    protected array $content_fields = [
+        'repeater_categories_news',
+        'tab_news_cat',
+        'tab_news_cat_END',
+        'dynamic_categories_news',
+        'date_news',
+        'text',
+        'image',
+    ];
+
+    public function __construct()
+    {
+        /**
+         * set the Template Names
+         */
+        $this->template_news = 'template_news';
+        $this->template_options  = 'options_news';
+    }
+
+    /**
+     * install function for the module
+     *
+     * @return void
+     * @throws WirePermissionException
+     */
+    public function ___install()
+    {
+        foreach ($this->internal_modules as $moduleName) {
+            if (!$this->modules->isInstalled($moduleName)) {
+                $this->modules->get($moduleName);
+            }
+        }
+
+        /**
+         * create / copy the template_news.php in the templates folder
+         */
+        $tplFile = $this->config->paths->WesanoxNews . 'src/templates/' .  $this->template_news . '.php';
+        $targetFile = $this->config->paths->templates . $this->template_news . '.php';
+
+        if (!file_exists($targetFile)) {
+            copy($tplFile, $targetFile);
+        }
+
+        /**
+         * create the fields for the custom menu
+         */
+        $this->createFields($this->fields);
+
+        /**
+         * if not exists, create content only Page
+         */
+        if ( !$this->templates->get($this->template_news) ) {
+            $fg = new Fieldgroup();
+            $fg->name = $this->template_news;
+            $fg->add('title');
+            $fg->add('dynamic_categories_news');
+            $fg->add('date_news');
+
+            $fg->add('image');
+//            $fg->get('image')->set('columnWidth', 50);
+//            $fg->get('image')->save();
+
+            $fg->add('text');
+//            $fg->get('text')->set('columnWidth', 50);
+//            $fg->get('text')->set('label', 'Kurzbeschreibung');
+//            $fg->get('text')->save();
+
+            $fg->add('matrix_content');
+            $fg->save();
+
+            $tn = new Template();
+            $tn->name = $this->template_news;
+            $tn->label = 'News';
+            $tn->fieldgroup = $fg;
+            $tn->icon = 'Newspaper-o';
+            $tn->tags = 'Templates';
+            $tn->save();
+        } else {
+            $tn = $this->fieldgroups->get($this->template_news);
+            $tn->add('dynamic_categories_news');
+            $tn->add('date_news');
+
+            $tn->add('image');
+//            $tn->get('image')->set('columnWidth', 50);
+//            $tn->get('image')->save();
+
+            $tn->add('text');
+//            $tn->get('text')->set('columnWidth', 50);
+//            $tn->get('text')->set('label', 'Kurzbeschreibung');
+//            $tn->get('text')->save();
+
+            $tn->add('matrix_content');
+            $tn->save();
+        }
+
+        /**
+         * if not exists, create settings Page or add new Fields
+         * to the settingspage
+         */
+        if ( !$this->templates->get($this->template_options) ) {
+            $fg = new Fieldgroup();
+            $fg->name = $this->template_options;
+            $fg->add('title');
+            $fg->add('matrix_basic');
+            $fg->add('tab_news');
+            $fg->add('repeater_categories_news');
+            $fg->add('tab_news_END');
+            $fg->save();
+
+            $op = new Template();
+            $op->name = $this->template_options;
+            $op->label = 'News Einstellungen';
+            $op->fieldgroup = $fg;
+            $op->icon = 'cogs';
+            $op->tags = 'Options';
+            $op->noParents = -1;
+            $op->save();
+        } else {
+            $op = $this->fieldgroups->get($this->template_options);
+            $op->add('matrix_basic');
+            $op->add('tab_news');
+            $op->add('repeater_categories_news');
+            $op->add('tab_news_END');
+            $op->save();
+        }
+
+        $np = new Page();
+        $np->template = $this->template_options;
+        $np->parent = $this->pages->get('template=options_generals');
+        $np->title = 'News Einstellungen';
+        $np->name = 'options-news';
+        $np->save();
+    }
+
+    /**
+     * uninstall function for the modul
+     *
+     * @return void
+     * @throws WireException
+     */
+    public function ___uninstall()
+    {
+        /**
+         * remove the settings page
+         */
+        if($this->pages->get('name=options-news')) {
+            $this->pages->get('name=options-news')->delete();
+        }
+
+        /**
+         * remove fields from news page
+         */
+        if($this->templates->get($this->template_news)) {
+            $op = $this->fieldgroups->get($this->template_news);
+            $op->remove('matrix_content');
+            $op->save();
+        }
+
+        /**
+         * remove fields from option page
+         */
+        if($this->templates->get($this->template_options)) {
+            $op = $this->fieldgroups->get($this->template_options);
+            $op->remove('matrix_basic');
+            $op->remove('tab_news');
+            $op->remove('repeater_categories_news');
+            $op->remove('tab_news_END');
+            $op->save();
+        }
+
+        /**
+         * remove template_news.php from templates folder
+         */
+        $file = $this->config->paths->templates . "$this->template_news.php";
+
+        if (is_file($file)) {
+            unlink($file);
+        }
+
+        if ($this->templates->get($this->template_news)->id && !$this->pages->count("template=$this->template_news")) {
+            $this->templates->delete($this->templates->get($this->template_news));
+        }
+
+        /**
+         * delete fields
+         */
+        foreach ($this->content_fields as $field_name) {
+            $field = $this->fields->get($field_name);
+
+            if ($field && $field->getFieldgroups()->count == 0) {
+                $this->fields->delete($field);
+            }
+        }
+    }
+
+    /**
+     * Modul-Konfiguration
+     */
+    public static function getModuleConfigInputfields(array $data) : InputfieldWrapper
+    {
+        $inputfields = new InputfieldWrapper();
+
+        /**
+         * Represents a variable named $f.
+         *
+         * The purpose and type of this variable should be defined
+         * based on its usage in the application. Ensure that
+         * adequate context is provided where this variable is utilized.
+         */
+//        $f = wire('modules')->get('InputfieldCheckbox');
+//        $f->name = 'remove_language_modules';
+//        $f->label = __('Sprachmodule beim Deinstallieren automatisch entfernen');
+//        $f->description = __('Achtung: Diese Option entfernt Sprachunterstützung dauerhaft.');
+//        $f->value = 1;
+//        $f->columnWidth = 50;
+//        $f->checked = !empty($data['remove_language_modules']);
+//        $inputfields->add($f);
+//
+//        $f = wire('modules')->get('InputfieldCheckbox');
+//        $f->name = 'easy_language';
+//        $f->label = __('Sprache "Einfache Sprache" hinzufügen');
+//        $f->description = __('Fügt eine neue Sprache mit dem Namen "einfache-sprache" hinzu.');
+//        $f->value = 1;
+//        $f->columnWidth = 50;
+//        $f->checked = !empty($data['easy_language']);
+//        $inputfields->add($f);
+
+        return $inputfields;
+    }
+
+    /**
+     * @return void
+     */
+    public function ready() : void
+    {
+        $this->addHookAfter('FieldtypeDynamicOptions::getSelectableOptions', $this, 'provideDynamicCategoriesNews');
+    }
+
+    /**
+     * @param HookEvent $event
+     * @return void
+     */
+    public function provideDynamicCategoriesNews(HookEvent $event) : void
+    {
+        $page = $event->arguments(0);
+        $field = $event->arguments(1);
+
+        if ($field->name === 'dynamic_categories_news') {
+            $settingsPage = $this->pages->get('template='.$this->template_options); // Passe den Pfad ggf. an
+            $options = [];
+
+            foreach ($settingsPage->repeater_categories_news as $cat) {
+                $options[$cat->id] = $cat->headline;
+            }
+
+            $event->return = $options;
+        }
+    }
+
+    private function createFields($fields) : void
+    {
+        /**
+         * headline
+         */
+        if(!$fields->get('headline')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeText');
+            $field->name = "headline";
+            $field->label = $this->_('Überschrift');
+            $field->tags = 'headlines';
+            $field->icon = 'Header';
+            $field->textformatters = [0 => 'TextformatterEntities'];
+            $field->columnWidth = 25;
+            $field->save();
+        }
+
+        /**
+         * tabs for the menu in the settings page
+         */
+        if(!$fields->get('tab_news_cat')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeFieldsetTabOpen');
+            $field->name = "tab_news";
+            $field->label = $this->_('News Kategorien');
+            $field->tags = 'tabs';
+            $field->icon = 'Tag';
+            $field->save();
+        }
+
+        if(!$fields->get('tab_news_cat_END')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeFieldsetClose');
+            $field->name = "tab_news_END";
+            $field->label = $this->_('Close an open fieldset');
+            $field->tags = 'tabs';
+            $field->icon = 'Tag';
+            $field->save();
+        }
+
+        /**
+         * dynamic categories news
+         */
+        if(!$fields->get('dynamic_categories_news')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeDynamicOptions');
+            $field->name = "dynamic_categories_news";
+            $field->label = $this->_('News Kategorien');
+            $field->tags = 'dynamic';
+            $field->icon = 'Magic';
+            $field->columnWidth = 50;
+            $field->inputfield_class = 'InputfieldCheckboxes';
+            $field->save();
+        }
+
+        /**
+         * date news
+         */
+        if(!$fields->get('date_news')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeDatetime');
+            $field->name = "date_news";
+            $field->label = $this->_('Veröffentlichungsdatum');
+            $field->tags = 'date';
+            $field->icon = 'Calendar';
+            $field->dateOutputFormat = 'd.m.Y';
+            $field->dateInputFormat = 'Y-m-d';
+            $field->defaultToday = 1;
+            $field->columnWidth = 50;
+            $field->save();
+        }
+
+        /**
+         * image
+         */
+        if(!$fields->get('image')) {
+            $crop_image =
+                <<<EOT
+                desktop,1920,1080
+                tablet,1024,600
+                mobile,600,600
+                quadratisch,750,750
+                EOT;
+
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeCroppableImage3');
+            $field->name = "image";
+            $field->label = $this->_('Bild');
+            $field->tags = 'images';
+            $field->icon = 'File image o';
+            $field->columnWidth = 25;
+            $field->maxFiles = 1;
+            $field->defaultValuePage = 0;
+            $field->gridMode = 'list';
+            $field->clientQuality = 90;
+            $field->extensions = 'gif jpg jpeg png';
+            $field->cropSetting = $crop_image;
+            $field->inputfieldClass = 'InputfieldCroppableImage3';
+            $field->save();
+
+            $f = $fields->get('image');
+            $f->save();
+        }
+
+        /**
+         * text
+         */
+        if(!$fields->get('text')) {
+            $field = new Field;
+            $field->type = $this->modules->get('FieldtypeTextarea');
+            $field->name = "text";
+            $field->label = $this->_('Text');
+            $field->tags = 'text';
+            $field->icon = 'File text o';
+            $field->inputfieldClass = 'InputfieldCKEditor';
+            $field->columnWidth = 100;
+            $field->save();
+        }
+
+        /**
+         * matrix for the menu in the settings page
+         */
+        if(!$fields->get('repeater_categories_news')) {
+            $id_headline = $fields->get('headline')->id;
+
+            $field = new Field();
+            $field->type = $this->modules->get("FieldtypeRepeater");
+            $field->name = 'repeater_categories_news';
+            $field->label = $this->_('Repeater (News Kategorien)');
+            $field->tags = 'repeater';
+            $field->icon = 'Repeat';
+            $field->addType = 1;
+
+            $field->repeaterFields = array(
+                0 => $id_headline
+            );
+
+            $field->save();
+
+            $repeater = $fields->get('repeater_categories_news');
+
+            $repeater_template = $repeater->type->getRepeaterTemplate($repeater);
+
+            $repeater_template->fieldgroup->add('headline');
+
+            $repeater_template->fieldgroup->save();
+
+            $repeater->save();
+        }
+    }
+}
