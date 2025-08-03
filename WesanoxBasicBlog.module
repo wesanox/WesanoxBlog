@@ -2,18 +2,18 @@
 
 namespace ProcessWire;
 
-class WesanoxNews extends WireData implements Module, ConfigurableModule
+class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
 {
     public static function getModuleInfo()
     {
         return array(
-            'title' => 'wesanox News Tool',
+            'title' => 'wesanox Blog Tool',
             'summary' => 'A little News Tool for Processwire made by wesanox.',
             'version' => '0.0.1',
             'author' => 'Frittenfritze',
             'icon' => 'newspaper-o',
             'autoload' => true,
-            'installs' => ['ProcessWesanoxNews', 'FieldtypeDynamicOptions','WesanoxMatrixContent'],
+            'installs' => ['ProcessWesanoxBasicBlog', 'FieldtypeDynamicOptions','WesanoxMatrixContent'],
             'requires' => array(
                 'ProcessWire>=3.0.210',
                 'PHP>=8.0.0',
@@ -46,7 +46,8 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
          * set the Template Names
          */
         $this->template_news = 'template_news';
-        $this->template_options  = 'options_news';
+        $this->template_options  = 'options_generals';
+        $this->template_options_news  = 'options_news';
     }
 
     /**
@@ -77,6 +78,8 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
          * create the fields for the custom menu
          */
         $this->createFields($this->fields);
+
+
 
         /**
          * if not exists, create content only Page
@@ -126,12 +129,26 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
         }
 
         /**
-         * if not exists, create settings Page or add new Fields
-         * to the settingspage
+         * if not exists, create settings Page
          */
         if ( !$this->templates->get($this->template_options) ) {
+            $op = new Template();
+            $op->name = $this->template_options;
+            $op->label = 'Einstellungen';
+            $op->fieldgroup = $fg;
+            $op->icon = 'cogs';
+            $op->tags = 'Options';
+            $op->noParents = -1;
+            $op->save();
+        }
+
+        /**
+         * if not exists, create settings news Page or add new Fields
+         * to the settingsnewspage
+         */
+        if ( !$this->templates->get($this->template_options_news) ) {
             $fg = new Fieldgroup();
-            $fg->name = $this->template_options;
+            $fg->name = $this->template_options_news;
             $fg->add('title');
             $fg->add('matrix_basic');
             $fg->add('tab_news');
@@ -140,7 +157,7 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
             $fg->save();
 
             $op = new Template();
-            $op->name = $this->template_options;
+            $op->name = $this->template_options_news;
             $op->label = 'News Einstellungen';
             $op->fieldgroup = $fg;
             $op->icon = 'cogs';
@@ -148,7 +165,7 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
             $op->noParents = -1;
             $op->save();
         } else {
-            $op = $this->fieldgroups->get($this->template_options);
+            $op = $this->fieldgroups->get($this->template_options_news);
             $op->add('matrix_basic');
             $op->add('tab_news');
             $op->add('repeater_categories_news');
@@ -157,7 +174,7 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
         }
 
         $np = new Page();
-        $np->template = $this->template_options;
+        $np->template = $this->template_options_news;
         $np->parent = $this->pages->get('template=options_generals');
         $np->title = 'News Einstellungen';
         $np->name = 'options-news';
@@ -191,8 +208,8 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
         /**
          * remove fields from option page
          */
-        if($this->templates->get($this->template_options)) {
-            $op = $this->fieldgroups->get($this->template_options);
+        if($this->templates->get($this->template_options_news)) {
+            $op = $this->fieldgroups->get($this->template_options_news);
             $op->remove('matrix_basic');
             $op->remove('tab_news');
             $op->remove('repeater_categories_news');
@@ -278,7 +295,7 @@ class WesanoxNews extends WireData implements Module, ConfigurableModule
         $field = $event->arguments(1);
 
         if ($field->name === 'dynamic_categories_news') {
-            $settingsPage = $this->pages->get('template='.$this->template_options); // Passe den Pfad ggf. an
+            $settingsPage = $this->pages->get('template='.$this->template_options_news);
             $options = [];
 
             foreach ($settingsPage->repeater_categories_news as $cat) {

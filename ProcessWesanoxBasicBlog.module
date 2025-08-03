@@ -1,0 +1,242 @@
+<?php
+namespace ProcessWire;
+
+class ProcessWesanoxBasicBlog extends Process implements Module
+{
+    public static function getModuleInfo()
+    {
+        return array(
+            'title' => 'wesanox Blog Process',
+            'summary' => 'A little Blog Tool for Processwire made by wesanox.',
+            'version' => '0.0.1',
+            'author' => 'wesanox',
+            'icon' => 'newspaper-o',
+            'page'       => array(
+                'name' => 'wesanox-blog',
+                'title' => 'Blog Categories',
+            ),
+            'requires' => 'WesanoxBasicBlog',
+        );
+    }
+
+    protected Page $template_options_news;
+
+    public function __construct()
+    {
+        $this->template_options_news = $this->pages->get('template=options_news');
+    }
+
+    /**
+     * @return void
+     * @throws WireException
+     * @throws WirePermissionException
+     */
+    public function init() : void
+    {
+        $this->wire('modules')->get('JqueryUI')->use('vex');
+        parent::init();
+    }
+
+    /**
+     * @return string
+     * @throws WirePermissionException
+     */
+    public function ___execute() : string
+    {
+        $button = $this->modules->get('InputfieldButton');
+        $button->value = __('Add new');
+        $button->icon = 'plus-circle';
+        $button->attr('href', './add/');
+        $addButton = $button->render();
+
+        // Return view data
+        return $this->renderTable() . $addButton;
+    }
+
+    /**
+     * @return mixed
+     * @throws WirePermissionException
+     */
+    public function ___executeAdd() : string
+    {
+        if ($this->input->post->submit) {
+            $cat_name = $this->input->post->cat_name;
+
+            if (empty($cat_name)) {
+                $this->error(__('Please fill in all fields'));
+            } else {
+                $this->saveCategory(null, $cat_name);
+                $this->message(__('Category added'));
+                $this->session->redirect($this->page->url);
+            }
+
+            $data = compact('cat_name');
+        } else {
+            $data = [];
+        }
+
+        $form = $this->buildForm($data);
+        return $form->render();
+    }
+
+    /**
+     * @return mixed
+     * @throws WireException
+     */
+    public function ___executeEdit() : string
+    {
+        $id = $this->input->get('id');
+        $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+
+        if (!$cat instanceof Page || !$cat->id) {
+            $this->error(__("Category with ID $id  not found!"));
+        }
+
+        if ($this->input->post->submit) {
+            $cat_name = $this->input->post->cat_name;
+
+            if (empty($cat_name)) {
+                $this->error(__('Please fill in all fields'));
+            } else {
+                $this->saveCategory($id, $cat_name);
+                $this->message(__('Category saved'));
+            }
+
+            $data = compact('cat_name');
+        } else {
+            $data = [
+                'cat_name' => $cat->headline,
+            ];
+        }
+
+        $form = $this->buildForm($data, $id);
+        $form->action = $this->page->url . 'edit?id=' . $id;
+
+        return $form->render();
+    }
+
+    /**
+     * @return void
+     * @throws WireException
+     */
+    public function ___executeDelete() : void
+    {
+        $id = $this->input->get('id');
+
+        $this->deleteCategory($id);
+
+        $this->message(__('Category deleted'));
+
+        $this->session->redirect($this->page->url);
+    }
+
+    /**
+     * @param array $data
+     * @param string|null $id
+     * @return InputfieldForm
+     * @throws WirePermissionException
+     */
+    private function buildForm(array $data = [], string $id = null): InputfieldForm
+    {
+        $form = $this->modules->get('InputfieldForm');
+        $wrapper = $this->modules->get('InputfieldWrapper');
+
+        $defaults = [
+            'name' => '',
+        ];
+
+        $data = array_merge($defaults, $data);
+
+        $f = $this->modules->get('InputfieldText');
+        $f->label = __('Category Name');
+        $f->description = __('Any combination of letters (a-z), numbers (0-9).');
+        $f->attr('name', 'cat_name');
+        $f->attr('value', $data['cat_name']);
+        $f->required = true;
+        $wrapper->add($f);
+
+        $submit = $this->modules->get('InputfieldSubmit');
+        $submit->attr('name', 'submit');
+        $submit->attr('value', __('Save'));
+        $wrapper->add($submit);
+
+        $form->add($wrapper);
+        return $form;
+    }
+
+    /**
+     * Add new Category - Item or edit existing Category - Item
+     *
+     * @param string|null $id
+     * @param string $cat_name
+     * @return Page|null
+     */
+    private function saveCategory(?string $id, string $cat_name): ?Page
+    {
+        $this->template_options_news->of(false);
+
+        if ($id) {
+            $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+
+            if (!$cat instanceof Page || !$cat->id) {
+                $this->error(__("API with ID $id not found"));
+            }
+
+            $cat->of(false);
+        } else {
+            $cat = $this->template_options_news->repeater_categories_news->getNew();
+        }
+
+        $cat->headline = $cat_name;
+        $cat->save();
+
+        $this->template_options_news->save();
+
+        return $cat;
+    }
+
+    /**
+     * @param $id
+     * @return void
+     * @throws WireException
+     */
+    private function deleteCategory($id) : void
+    {
+        $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+
+        $this->template_options_news->of(false);
+
+        $cat->delete();
+
+        $this->template_options_news->save();
+    }
+
+    /**
+     * @return mixed
+     * @throws WirePermissionException
+     */
+    private function renderTable() : mixed
+    {
+        $table = $this->modules->get('MarkupAdminDataTable');
+
+        $table->setSortable(false);
+        $table->setEncodeEntities(false);
+        $table->headerRow([__('Category Name'), __('Actions')]);
+
+        foreach ( $this->template_options_news->repeater_categories_news AS $cat) {
+            $buttonDelete = $this->modules->get('InputfieldButton');
+            $buttonDelete->value = 'delete';
+            $buttonDelete->icon = 'trash';
+            $buttonDelete->setSmall()->setSecondary();
+            $buttonDelete->attr('href', './delete/?id=' . $cat->id);
+            $buttonDelete->addClass('InputfieldButtonLink');
+
+            $table->row([
+                '<a href="./edit?id=' . $cat->id . '">' . $cat->headline . "</a>",
+                $buttonDelete->render(),
+            ]);
+        }
+
+        return $table->render();
+    }
+}

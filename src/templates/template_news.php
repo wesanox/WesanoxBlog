@@ -1,6 +1,6 @@
 <?php $count = 0; ?>
 
-<div id="content">
+<div id="content" class="template-news">
     <div class="container">
         <div class="row">
             <div class="col-12 my-5">
@@ -36,7 +36,7 @@
 
                 <?php echo $page->render('matrix_content'); ?>
 
-                <div class="py-4 d-flex justify-content-end btn-template-control">
+                <div class="py-4 d-flex justify-content-end gap-2 btn-template-control">
                     <?php if($page->prev->id != 0) : ?>
                         <a href="<?php echo $page->prev->url; ?>" class="news-template-prev" aria-label="<?php echo $page->prev->title; ?>" title="<?php echo $page->prev->title; ?>">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-circle-fill" viewBox="0 0 16 16">
@@ -59,6 +59,6 @@
             </div>
         </div>
 
-        <?php echo $page->find("template=options_news")->render('matrix_basic'); ?>
+        <?php echo $pages->findOne("template=options_news,status=hidden")->render('matrix_basic'); ?>
     </div>
 </div>
