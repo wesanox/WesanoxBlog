@@ -9,7 +9,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
         return array(
             'title' => 'wesanox Blog Tool',
             'summary' => 'A little News Tool for Processwire made by wesanox.',
-            'version' => '0.0.1',
+            'version' => '0.1.1',
             'author' => 'Frittenfritze',
             'icon' => 'newspaper-o',
             'autoload' => true,
@@ -32,9 +32,11 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
 
     protected array $content_fields = [
         'repeater_categories_news',
-        'tab_news_cat',
-        'tab_news_cat_END',
+        'checkbox_subcategory',
+        'tab_news',
+        'tab_news_END',
         'dynamic_categories_news',
+        'dynamic_subcategories_news',
         'date_news',
         'text',
         'image',
@@ -67,7 +69,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
         /**
          * create / copy the template_news.php in the templates folder
          */
-        $tplFile = $this->config->paths->WesanoxNews . 'src/templates/' .  $this->template_news . '.php';
+        $tplFile = $this->config->paths->WesanoxBasicBlog . 'src/templates/' .  $this->template_news . '.php';
         $targetFile = $this->config->paths->templates . $this->template_news . '.php';
 
         if (!file_exists($targetFile)) {
@@ -79,8 +81,6 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
          */
         $this->createFields($this->fields);
 
-
-
         /**
          * if not exists, create content only Page
          */
@@ -89,6 +89,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
             $fg->name = $this->template_news;
             $fg->add('title');
             $fg->add('dynamic_categories_news');
+            $fg->add('dynamic_subcategories_news');
             $fg->add('date_news');
 
             $fg->add('image');
@@ -113,6 +114,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
         } else {
             $tn = $this->fieldgroups->get($this->template_news);
             $tn->add('dynamic_categories_news');
+            $tn->add('dynamic_subcategories_news');
             $tn->add('date_news');
 
             $tn->add('image');
@@ -240,6 +242,10 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
                 $this->fields->delete($field);
             }
         }
+
+        if($this->templates->get($this->template_options_news)->id && !$this->pages->count("template=$this->template_options_news")) {
+            $this->templates->delete($this->templates->get($this->template_options_news));
+        }
     }
 
     /**
@@ -283,6 +289,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
     public function ready() : void
     {
         $this->addHookAfter('FieldtypeDynamicOptions::getSelectableOptions', $this, 'provideDynamicCategoriesNews');
+        $this->addHookAfter('FieldtypeDynamicOptions::getSelectableOptions', $this, 'provideDynamicSubcategoriesNews');
     }
 
     /**
@@ -291,7 +298,6 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
      */
     public function provideDynamicCategoriesNews(HookEvent $event) : void
     {
-        $page = $event->arguments(0);
         $field = $event->arguments(1);
 
         if ($field->name === 'dynamic_categories_news') {
@@ -299,7 +305,31 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
             $options = [];
 
             foreach ($settingsPage->repeater_categories_news as $cat) {
-                $options[$cat->id] = $cat->headline;
+                if (!$cat->checkbox_subcategory) {
+                    $options[$cat->id] = $cat->headline;
+                }
+            }
+
+            $event->return = $options;
+        }
+    }
+
+    /**
+     * @param HookEvent $event
+     * @return void
+     */
+    public function provideDynamicSubcategoriesNews(HookEvent $event) : void
+    {
+        $field = $event->arguments(1);
+
+        if ($field->name === 'dynamic_subcategories_news') {
+            $settingsPage = $this->pages->get('template='.$this->template_options_news);
+            $options = [];
+
+            foreach ($settingsPage->repeater_categories_news as $cat) {
+                if ($cat->checkbox_subcategory) {
+                    $options[$cat->id] = $cat->headline;
+                }
             }
 
             $event->return = $options;
@@ -312,70 +342,95 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
          * headline
          */
         if(!$fields->get('headline')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeText');
-            $field->name = "headline";
-            $field->label = $this->_('Überschrift');
-            $field->tags = 'headlines';
-            $field->icon = 'Header';
-            $field->textformatters = [0 => 'TextformatterEntities'];
-            $field->columnWidth = 25;
-            $field->save();
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeText');
+            $f->name = "headline";
+            $f->label = $this->_('Überschrift');
+            $f->tags = 'headlines';
+            $f->icon = 'Header';
+            $f->textformatters = [0 => 'TextformatterEntities'];
+            $f->columnWidth = 25;
+            $f->save();
+        }
+
+        if(!$fields->get('checkbox_subcategory')) {
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeCheckbox');
+            $f->name = "checkbox_subcategory";
+            $f->label = $this->_('Subcategory?');
+            $f->description = $this->_('Is this a subcategory?');
+            $f->tags = 'settings';
+            $f->icon = 'Check';
+            $f->columnWidth = 50;
+            $f->save();
         }
 
         /**
          * tabs for the menu in the settings page
          */
-        if(!$fields->get('tab_news_cat')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeFieldsetTabOpen');
-            $field->name = "tab_news";
-            $field->label = $this->_('News Kategorien');
-            $field->tags = 'tabs';
-            $field->icon = 'Tag';
-            $field->save();
+        if(!$fields->get('tab_news')) {
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeFieldsetTabOpen');
+            $f->name = "tab_news";
+            $f->label = $this->_('News Kategorien');
+            $f->tags = 'tabs';
+            $f->icon = 'Tag';
+            $f->save();
         }
 
-        if(!$fields->get('tab_news_cat_END')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeFieldsetClose');
-            $field->name = "tab_news_END";
-            $field->label = $this->_('Close an open fieldset');
-            $field->tags = 'tabs';
-            $field->icon = 'Tag';
-            $field->save();
+        if(!$fields->get('tab_news_END')) {
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeFieldsetClose');
+            $f->name = "tab_news_END";
+            $f->label = $this->_('Close an open fieldset');
+            $f->tags = 'tabs';
+            $f->icon = 'Tag';
+            $f->save();
         }
 
         /**
-         * dynamic categories news
+         * dynamic categories / subcategories news
          */
         if(!$fields->get('dynamic_categories_news')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeDynamicOptions');
-            $field->name = "dynamic_categories_news";
-            $field->label = $this->_('News Kategorien');
-            $field->tags = 'dynamic';
-            $field->icon = 'Magic';
-            $field->columnWidth = 50;
-            $field->inputfield_class = 'InputfieldCheckboxes';
-            $field->save();
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeDynamicOptions');
+            $f->name = "dynamic_categories_news";
+            $f->label = $this->_('News Kategorien');
+            $f->tags = 'dynamic';
+            $f->icon = 'Magic';
+            $f->max_items = 1;
+            $f->columnWidth = 40;
+            $f->inputfield_class = 'InputfieldCheckboxes';
+            $f->save();
+        }
+
+        if(!$fields->get('dynamic_subcategories_news')) {
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeDynamicOptions');
+            $f->name = "dynamic_subcategories_news";
+            $f->label = $this->_('News Subkategorien');
+            $f->tags = 'dynamic';
+            $f->icon = 'Magic';
+            $f->columnWidth = 40;
+            $f->inputfield_class = 'InputfieldCheckboxes';
+            $f->save();
         }
 
         /**
          * date news
          */
         if(!$fields->get('date_news')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeDatetime');
-            $field->name = "date_news";
-            $field->label = $this->_('Veröffentlichungsdatum');
-            $field->tags = 'date';
-            $field->icon = 'Calendar';
-            $field->dateOutputFormat = 'd.m.Y';
-            $field->dateInputFormat = 'Y-m-d';
-            $field->defaultToday = 1;
-            $field->columnWidth = 50;
-            $field->save();
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeDatetime');
+            $f->name = "date_news";
+            $f->label = $this->_('Veröffentlichungsdatum');
+            $f->tags = 'date';
+            $f->icon = 'Calendar';
+            $f->dateOutputFormat = 'd.m.Y';
+            $f->dateInputFormat = 'Y-m-d';
+            $f->defaultToday = 1;
+            $f->columnWidth = 20;
+            $f->save();
         }
 
         /**
@@ -390,21 +445,21 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
                 quadratisch,750,750
                 EOT;
 
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeCroppableImage3');
-            $field->name = "image";
-            $field->label = $this->_('Bild');
-            $field->tags = 'images';
-            $field->icon = 'File image o';
-            $field->columnWidth = 25;
-            $field->maxFiles = 1;
-            $field->defaultValuePage = 0;
-            $field->gridMode = 'list';
-            $field->clientQuality = 90;
-            $field->extensions = 'gif jpg jpeg png';
-            $field->cropSetting = $crop_image;
-            $field->inputfieldClass = 'InputfieldCroppableImage3';
-            $field->save();
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeCroppableImage3');
+            $f->name = "image";
+            $f->label = $this->_('Bild');
+            $f->tags = 'images';
+            $f->icon = 'File image o';
+            $f->columnWidth = 25;
+            $f->maxFiles = 1;
+            $f->defaultValuePage = 0;
+            $f->gridMode = 'list';
+            $f->clientQuality = 90;
+            $f->extensions = 'gif jpg jpeg png';
+            $f->cropSetting = $crop_image;
+            $f->inputfieldClass = 'InputfieldCroppableImage3';
+            $f->save();
 
             $f = $fields->get('image');
             $f->save();
@@ -414,42 +469,45 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
          * text
          */
         if(!$fields->get('text')) {
-            $field = new Field;
-            $field->type = $this->modules->get('FieldtypeTextarea');
-            $field->name = "text";
-            $field->label = $this->_('Text');
-            $field->tags = 'text';
-            $field->icon = 'File text o';
-            $field->inputfieldClass = 'InputfieldCKEditor';
-            $field->columnWidth = 100;
-            $field->save();
+            $f = new Field;
+            $f->type = $this->modules->get('FieldtypeTextarea');
+            $f->name = "text";
+            $f->label = $this->_('Text');
+            $f->tags = 'text';
+            $f->icon = 'File text o';
+            $f->inputfieldClass = 'InputfieldCKEditor';
+            $f->columnWidth = 100;
+            $f->save();
         }
 
         /**
-         * matrix for the menu in the settings page
+         * repeater for the news categories / subcategories
          */
         if(!$fields->get('repeater_categories_news')) {
             $id_headline = $fields->get('headline')->id;
+            $id_checkbox_subcategory = $fields->get('checkbox_subcategory')->id;
 
-            $field = new Field();
-            $field->type = $this->modules->get("FieldtypeRepeater");
-            $field->name = 'repeater_categories_news';
-            $field->label = $this->_('Repeater (News Kategorien)');
-            $field->tags = 'repeater';
-            $field->icon = 'Repeat';
-            $field->addType = 1;
+            $f = new Field();
+            $f->type = $this->modules->get("FieldtypeRepeater");
+            $f->name = 'repeater_categories_news';
+            $f->label = $this->_('Repeater (News Kategorien)');
+            $f->tags = 'repeater';
+            $f->icon = 'Repeat';
+            $f->addType = 1;
 
-            $field->repeaterFields = array(
-                0 => $id_headline
+            $f->repeaterFields = array(
+                0 => $id_headline,
+                1 => $id_checkbox_subcategory
             );
 
-            $field->save();
+            $f->save();
 
             $repeater = $fields->get('repeater_categories_news');
 
             $repeater_template = $repeater->type->getRepeaterTemplate($repeater);
 
             $repeater_template->fieldgroup->add('headline');
+            $repeater_template->fieldgroup->add('checkbox_subcategory');
 
             $repeater_template->fieldgroup->save();
 

@@ -8,11 +8,12 @@ class ProcessWesanoxBasicBlog extends Process implements Module
         return array(
             'title' => 'wesanox Blog Process',
             'summary' => 'A little Blog Tool for Processwire made by wesanox.',
-            'version' => '0.0.1',
+            'version' => '0.1.1',
             'author' => 'wesanox',
             'icon' => 'newspaper-o',
             'page'       => array(
                 'name' => 'wesanox-blog',
+                'parent' => 'setup',
                 'title' => 'Blog Categories',
             ),
             'requires' => 'WesanoxBasicBlog',
@@ -43,14 +44,14 @@ class ProcessWesanoxBasicBlog extends Process implements Module
      */
     public function ___execute() : string
     {
-        $button = $this->modules->get('InputfieldButton');
-        $button->value = __('Add new');
-        $button->icon = 'plus-circle';
-        $button->attr('href', './add/');
-        $addButton = $button->render();
+        $buttonCat = $this->modules->get('InputfieldButton');
+        $buttonCat->value = __('Add new category');
+        $buttonCat->icon = 'plus-circle';
+        $buttonCat->attr('href', './add/');
+        $addButtonCat = $buttonCat->render();
 
         // Return view data
-        return $this->renderTable() . $addButton;
+        return $this->renderTableCategories() . $addButtonCat;
     }
 
     /**
@@ -61,16 +62,19 @@ class ProcessWesanoxBasicBlog extends Process implements Module
     {
         if ($this->input->post->submit) {
             $cat_name = $this->input->post->cat_name;
+            $cat_checkbox = $this->input->post->cat_checkbox;
+
+            bd($cat_checkbox);
 
             if (empty($cat_name)) {
                 $this->error(__('Please fill in all fields'));
             } else {
-                $this->saveCategory(null, $cat_name);
+                $this->saveCategory(null, $cat_name, $cat_checkbox);
                 $this->message(__('Category added'));
                 $this->session->redirect($this->page->url);
             }
 
-            $data = compact('cat_name');
+            $data = compact('cat_name', 'cat_checkbox');
         } else {
             $data = [];
         }
@@ -94,18 +98,20 @@ class ProcessWesanoxBasicBlog extends Process implements Module
 
         if ($this->input->post->submit) {
             $cat_name = $this->input->post->cat_name;
+            $cat_checkbox = $this->input->post->cat_checkbox;
 
             if (empty($cat_name)) {
                 $this->error(__('Please fill in all fields'));
             } else {
-                $this->saveCategory($id, $cat_name);
+                $this->saveCategory($id, $cat_name, $cat_checkbox);
                 $this->message(__('Category saved'));
             }
 
-            $data = compact('cat_name');
+            $data = compact('cat_name', 'cat_checkbox');
         } else {
             $data = [
                 'cat_name' => $cat->headline,
+                'cat_checkbox' => $cat->checkbox_subcategory,
             ];
         }
 
@@ -142,7 +148,8 @@ class ProcessWesanoxBasicBlog extends Process implements Module
         $wrapper = $this->modules->get('InputfieldWrapper');
 
         $defaults = [
-            'name' => '',
+            'cat_name' => '',
+            'cat_checkbox' => false,
         ];
 
         $data = array_merge($defaults, $data);
@@ -152,7 +159,17 @@ class ProcessWesanoxBasicBlog extends Process implements Module
         $f->description = __('Any combination of letters (a-z), numbers (0-9).');
         $f->attr('name', 'cat_name');
         $f->attr('value', $data['cat_name']);
+        $f->attr('maxlength', 255);
+        $f->attr('columnWidth', 50);
         $f->required = true;
+        $wrapper->add($f);
+
+        $f = $this->modules->get('InputfieldCheckbox');
+        $f->label = __('SubCategory?');
+        $f->description = __('Is this a subcategory?');
+        $f->attr('name', 'cat_checkbox');
+        $f->attr('checked', $data['cat_checkbox']);
+        $f->attr('columnWidth', 50);
         $wrapper->add($f);
 
         $submit = $this->modules->get('InputfieldSubmit');
@@ -169,9 +186,10 @@ class ProcessWesanoxBasicBlog extends Process implements Module
      *
      * @param string|null $id
      * @param string $cat_name
+     * @param $cat_checkbox
      * @return Page|null
      */
-    private function saveCategory(?string $id, string $cat_name): ?Page
+    private function saveCategory(?string $id, string $cat_name, $cat_checkbox): ?Page
     {
         $this->template_options_news->of(false);
 
@@ -188,6 +206,7 @@ class ProcessWesanoxBasicBlog extends Process implements Module
         }
 
         $cat->headline = $cat_name;
+        $cat->checkbox_subcategory = $cat_checkbox;
         $cat->save();
 
         $this->template_options_news->save();
@@ -215,15 +234,17 @@ class ProcessWesanoxBasicBlog extends Process implements Module
      * @return mixed
      * @throws WirePermissionException
      */
-    private function renderTable() : mixed
+    private function renderTableCategories() : mixed
     {
         $table = $this->modules->get('MarkupAdminDataTable');
 
         $table->setSortable(false);
         $table->setEncodeEntities(false);
-        $table->headerRow([__('Category Name'), __('Actions')]);
+        $table->headerRow([__('Category Name'), __('Subcategory?'), __('Actions')]);
 
         foreach ( $this->template_options_news->repeater_categories_news AS $cat) {
+            $checked = $cat->checkbox_subcategory ? ' checked' : '';
+
             $buttonDelete = $this->modules->get('InputfieldButton');
             $buttonDelete->value = 'delete';
             $buttonDelete->icon = 'trash';
@@ -233,6 +254,7 @@ class ProcessWesanoxBasicBlog extends Process implements Module
 
             $table->row([
                 '<a href="./edit?id=' . $cat->id . '">' . $cat->headline . "</a>",
+                '<input type="checkbox"' . $checked . ' disabled>',
                 $buttonDelete->render(),
             ]);
         }
