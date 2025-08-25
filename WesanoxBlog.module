@@ -2,7 +2,7 @@
 
 namespace ProcessWire;
 
-class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
+class WesanoxBlog extends WireData implements Module, ConfigurableModule
 {
     public static function getModuleInfo()
     {
@@ -13,7 +13,7 @@ class WesanoxBasicBlog extends WireData implements Module, ConfigurableModule
             'author' => 'Frittenfritze',
             'icon' => 'newspaper-o',
             'autoload' => true,
-            'installs' => ['ProcessWesanoxBasicBlog', 'FieldtypeDynamicOptions','WesanoxMatrixContent'],
+            'installs' => ['ProcessWesanoxBlog', 'FieldtypeDynamicOptions','WesanoxMatrixContent'],
             'requires' => array(
                 'ProcessWire>=3.0.210',
                 'PHP>=8.0.0',

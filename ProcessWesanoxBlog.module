@@ -1,7 +1,7 @@
 <?php
 namespace ProcessWire;
 
-class ProcessWesanoxBasicBlog extends Process implements Module
+class ProcessWesanoxBlog extends Process implements Module
 {
     public static function getModuleInfo()
     {
