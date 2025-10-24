@@ -1,14 +1,6 @@
 <?php
 namespace ProcessWire;
 
-include_once $this->config->paths->WesanoxMatrixContent . 'src/classes/MatrixHelperClass.php';
-
-/**
- * @var string $matrix_helper
- * @var int $count
- * @var Page $page
- */
-$matrix_helper = new MatrixHelperClass();
 $count = 0;
 ?>
 <div id="content" class="template-news">
@@ -45,7 +37,7 @@ $count = 0;
             <div class="col-12 col-lg-8 col-xxl-7">
                 <h1><?php echo $page->title; ?></h1>
 
-                <?php echo $matrix_helper->renderMatrix('basic', $page->matrix_basic, 'section'); ?>
+                <?php echo $modules->get('WesanoxHelperClasses')->renderMatrix('content', $page->matrix_content, 'div'); ?>
 
                 <div class="py-4 d-flex justify-content-end gap-2 btn-template-control">
                     <?php if($page->prev->id != 0) : ?>
