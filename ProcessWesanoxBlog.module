@@ -8,7 +8,7 @@ class ProcessWesanoxBlog extends Process implements Module
         return array(
             'title' => 'wesanox Blog Process',
             'summary' => 'A little Blog Tool for Processwire made by wesanox.',
-            'version' => '0.1.1',
+            'version' => '0.1.2',
             'author' => 'wesanox',
             'icon' => 'newspaper-o',
             'page'       => array(
@@ -16,7 +16,7 @@ class ProcessWesanoxBlog extends Process implements Module
                 'parent' => 'setup',
                 'title' => 'Blog Categories',
             ),
-            'requires' => 'WesanoxBasicBlog',
+            'requires' => 'WesanoxBlog',
         );
     }
 
