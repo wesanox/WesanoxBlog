@@ -20,11 +20,11 @@ class ProcessWesanoxBlog extends Process implements Module
         );
     }
 
-    protected Page $template_options_news;
+    protected Page $options_news;
 
     public function __construct()
     {
-        $this->template_options_news = $this->pages->get('template=options_news');
+        $this->options_news = $this->pages->get('template=options_news');
     }
 
     /**
@@ -44,42 +44,79 @@ class ProcessWesanoxBlog extends Process implements Module
      */
     public function ___execute() : string
     {
+        $cat = $this->options_news->repeater_categories_news;
+        $subcat_view = '';
+        $addButtonSubCat = '';
+
         $buttonCat = $this->modules->get('InputfieldButton');
-        $buttonCat->value = __('Add new category');
+        $buttonCat->value = __('Add category');
         $buttonCat->icon = 'plus-circle';
-        $buttonCat->attr('href', './add/');
+        $buttonCat->attr('href', './add-category/');
         $addButtonCat = $buttonCat->render();
 
-        // Return view data
-        return $this->renderTableCategories() . $addButtonCat;
+        if ( $cat->count() > 0 ) {
+            $buttonSubCat = $this->modules->get('InputfieldButton');
+            $buttonSubCat->value = __('Add subcategory');
+            $buttonSubCat->icon = 'plus-circle';
+            $buttonSubCat->attr('href', './add-subcategory/');
+            $addButtonSubCat = $buttonSubCat->render();
+
+            $subcat_view = $this->renderTableSubCategories();
+        }
+
+        return $addButtonCat . $addButtonSubCat . $this->renderTableCategories() . $subcat_view;
     }
 
     /**
      * @return mixed
      * @throws WirePermissionException
      */
-    public function ___executeAdd() : string
+    public function ___executeAddCategory() : string
     {
         if ($this->input->post->submit) {
             $cat_name = $this->input->post->cat_name;
-            $cat_checkbox = $this->input->post->cat_checkbox;
-
-            bd($cat_checkbox);
 
             if (empty($cat_name)) {
                 $this->error(__('Please fill in all fields'));
             } else {
-                $this->saveCategory(null, $cat_name, $cat_checkbox);
+                $this->saveCategory(null, $cat_name);
                 $this->message(__('Category added'));
                 $this->session->redirect($this->page->url);
             }
 
-            $data = compact('cat_name', 'cat_checkbox');
+            $data = compact('cat_name');
         } else {
             $data = [];
         }
 
-        $form = $this->buildForm($data);
+        $form = $this->buildFormCategory($data);
+        return $form->render();
+    }
+
+    /**
+     * @return mixed
+     * @throws WirePermissionException
+     */
+    public function ___executeAddSubcategory() : string
+    {
+        if ($this->input->post->submit) {
+            $subcat_name = $this->input->post->subcat_name;
+            $cat = $this->input->post->cat;
+
+            if (empty($subcat_name)) {
+                $this->error(__('Please fill in all fields'));
+            } else {
+                $this->saveSubcategory(null, $subcat_name, $cat);
+                $this->message(__('Category added'));
+                $this->session->redirect($this->page->url);
+            }
+
+            $data = compact('subcat_name', 'cat');
+        } else {
+            $data = [];
+        }
+
+        $form = $this->buildFormSubcategory($data);
         return $form->render();
     }
 
@@ -89,34 +126,66 @@ class ProcessWesanoxBlog extends Process implements Module
      */
     public function ___executeEdit() : string
     {
-        $id = $this->input->get('id');
-        $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+        $cat_id = $this->input->get('cat_id');
+        $subcat_id = $this->input->get('subcat_id');
 
-        if (!$cat instanceof Page || !$cat->id) {
-            $this->error(__("Category with ID $id  not found!"));
-        }
+        if ( $cat_id ) {
+            $cat = $this->options_news->repeater_categories_news->get("id=$cat_id");
 
-        if ($this->input->post->submit) {
-            $cat_name = $this->input->post->cat_name;
-            $cat_checkbox = $this->input->post->cat_checkbox;
-
-            if (empty($cat_name)) {
-                $this->error(__('Please fill in all fields'));
-            } else {
-                $this->saveCategory($id, $cat_name, $cat_checkbox);
-                $this->message(__('Category saved'));
+            if (!$cat instanceof Page || !$cat->id) {
+                $this->error(__("Category with ID $cat_id  not found!"));
             }
 
-            $data = compact('cat_name', 'cat_checkbox');
-        } else {
-            $data = [
-                'cat_name' => $cat->headline,
-                'cat_checkbox' => $cat->checkbox_subcategory,
-            ];
+            if ($this->input->post->submit) {
+                $cat_name = $this->input->post->cat_name;
+
+                if (empty($cat_name)) {
+                    $this->error(__('Please fill in all fields'));
+                } else {
+                    $this->saveCategory($cat_id, $cat_name);
+                    $this->message(__('Category saved'));
+                }
+
+                $data = compact('cat_name');
+            } else {
+                $data = [
+                    'cat_name' => $cat->headline,
+                ];
+            }
+
+            $form = $this->buildFormCategory($data, $cat_id);
+            $form->action = $this->page->url . 'edit?cat_id=' . $cat_id;
         }
 
-        $form = $this->buildForm($data, $id);
-        $form->action = $this->page->url . 'edit?id=' . $id;
+        if ( $subcat_id ) {
+            $subcat = $this->options_news->repeater_subcategories_news->get("id=$subcat_id");
+
+            if (!$subcat instanceof Page || !$subcat->id) {
+                $this->error(__("Category with ID $subcat_id  not found!"));
+            }
+
+            if ($this->input->post->submit) {
+                $subcat_name = $this->input->post->subcat_name;
+                $cat = $this->input->post->cat;
+
+                if (empty($subcat_name)) {
+                    $this->error(__('Please fill in all fields'));
+                } else {
+                    $this->saveSubcategory($subcat_id, $subcat_name, $cat);
+                    $this->message(__('Subcategory saved'));
+                }
+
+                $data = compact('subcat_name', 'cat');
+            } else {
+                $data = [
+                    'subcat_name' => $subcat->headline,
+                    'cat' => $subcat->dynamic_categories_news,
+                ];
+            }
+
+            $form = $this->buildFormSubcategory($data, $subcat_id);
+            $form->action = $this->page->url . 'edit?subcat_id=' . $subcat_id;
+        }
 
         return $form->render();
     }
@@ -142,14 +211,13 @@ class ProcessWesanoxBlog extends Process implements Module
      * @return InputfieldForm
      * @throws WirePermissionException
      */
-    private function buildForm(array $data = [], string $id = null): InputfieldForm
+    private function buildFormCategory(array $data = [], string $id = null): InputfieldForm
     {
         $form = $this->modules->get('InputfieldForm');
         $wrapper = $this->modules->get('InputfieldWrapper');
 
         $defaults = [
             'cat_name' => '',
-            'cat_checkbox' => false,
         ];
 
         $data = array_merge($defaults, $data);
@@ -164,12 +232,55 @@ class ProcessWesanoxBlog extends Process implements Module
         $f->required = true;
         $wrapper->add($f);
 
-        $f = $this->modules->get('InputfieldCheckbox');
-        $f->label = __('SubCategory?');
-        $f->description = __('Is this a subcategory?');
-        $f->attr('name', 'cat_checkbox');
-        $f->attr('checked', $data['cat_checkbox']);
+        $submit = $this->modules->get('InputfieldSubmit');
+        $submit->attr('name', 'submit');
+        $submit->attr('value', __('Save'));
+        $wrapper->add($submit);
+
+        $form->add($wrapper);
+        return $form;
+    }
+
+    /**
+     * @param array $data
+     * @param string|null $id
+     * @return InputfieldForm
+     * @throws WirePermissionException
+     */
+    private function buildFormSubcategory(array $data = [], string $id = null): InputfieldForm
+    {
+        $form = $this->modules->get('InputfieldForm');
+        $wrapper = $this->modules->get('InputfieldWrapper');
+        $cat = '';
+
+        $defaults = [
+            'subcat_name' => '',
+            'cat_id' => '',
+        ];
+
+        $data = array_merge($defaults, $data);
+
+        $f = $this->modules->get('InputfieldText');
+        $f->label = __('Subcategory Name');
+        $f->description = __('Any combination of letters (a-z), numbers (0-9).');
+        $f->attr('name', 'subcat_name');
+        $f->attr('value', $data['subcat_name']);
+        $f->attr('maxlength', 255);
         $f->attr('columnWidth', 50);
+        $f->required = true;
+        $wrapper->add($f);
+
+        $f = $this->modules->get('InputfieldSelect');
+        $f->label = __('Category');
+        $f->attr('name', 'cat');
+        $f->attr('value', $data['cat']);
+        $f->attr('columnWidth', 50);
+        $f->required = true;
+
+        foreach ( $this->options_news->repeater_categories_news as $categories ) {
+            $f->addOption($categories->headline, $categories->headline);
+        }
+
         $wrapper->add($f);
 
         $submit = $this->modules->get('InputfieldSubmit');
@@ -189,12 +300,12 @@ class ProcessWesanoxBlog extends Process implements Module
      * @param $cat_checkbox
      * @return Page|null
      */
-    private function saveCategory(?string $id, string $cat_name, $cat_checkbox): ?Page
+    private function saveCategory(?string $id, string $cat_name): ?Page
     {
-        $this->template_options_news->of(false);
+        $this->options_news->of(false);
 
         if ($id) {
-            $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+            $cat = $this->options_news->repeater_categories_news->get("id=$id");
 
             if (!$cat instanceof Page || !$cat->id) {
                 $this->error(__("API with ID $id not found"));
@@ -202,16 +313,40 @@ class ProcessWesanoxBlog extends Process implements Module
 
             $cat->of(false);
         } else {
-            $cat = $this->template_options_news->repeater_categories_news->getNew();
+            $cat = $this->options_news->repeater_categories_news->getNew();
         }
 
         $cat->headline = $cat_name;
-        $cat->checkbox_subcategory = $cat_checkbox;
         $cat->save();
 
-        $this->template_options_news->save();
+        $this->options_news->save();
 
         return $cat;
+    }
+
+    private function saveSubcategory(?string $id, string $subcat_name, string $cat): ?Page
+    {
+        $this->options_news->of(false);
+
+        if ($id) {
+            $subcat = $this->options_news->repeater_subcategories_news->get("id=$id");
+
+            if (!$subcat instanceof Page || !$subcat->id) {
+                $this->error(__("API with ID $id not found"));
+            }
+
+            $subcat->of(false);
+        } else {
+            $subcat = $this->options_news->repeater_subcategories_news->getNew();
+        }
+
+        $subcat->headline = $subcat_name;
+        $subcat->dynamic_categories_news = $cat;
+        $subcat->save();
+
+        $this->options_news->save();
+
+        return $subcat;
     }
 
     /**
@@ -221,13 +356,26 @@ class ProcessWesanoxBlog extends Process implements Module
      */
     private function deleteCategory($id) : void
     {
-        $cat = $this->template_options_news->repeater_categories_news->get("id=$id");
+        $cat_id = $this->input->get('cat_id');
+        $subcat_id = $this->input->get('subcat_id');
 
-        $this->template_options_news->of(false);
+        if ( $cat_id ) {
+            $cat = $this->options_news->repeater_categories_news->get("id=$cat_id");
 
-        $cat->delete();
+            $this->options_news->of(false);
 
-        $this->template_options_news->save();
+            $cat->delete();
+        }
+
+        if ( $subcat_id ) {
+            $subcat = $this->options_news->repeater_subcategories_news->get("id=$subcat_id");
+
+            $this->options_news->of(false);
+
+            $subcat->delete();
+        }
+
+        $this->options_news->save();
     }
 
     /**
@@ -240,21 +388,48 @@ class ProcessWesanoxBlog extends Process implements Module
 
         $table->setSortable(false);
         $table->setEncodeEntities(false);
-        $table->headerRow([__('Category Name'), __('Subcategory?'), __('Actions')]);
+        $table->headerRow([__('Category Name'), __('Actions')]);
 
-        foreach ( $this->template_options_news->repeater_categories_news AS $cat) {
-            $checked = $cat->checkbox_subcategory ? ' checked' : '';
-
+        foreach ( $this->options_news->repeater_categories_news AS $cat) {
             $buttonDelete = $this->modules->get('InputfieldButton');
             $buttonDelete->value = 'delete';
             $buttonDelete->icon = 'trash';
             $buttonDelete->setSmall()->setSecondary();
-            $buttonDelete->attr('href', './delete/?id=' . $cat->id);
+            $buttonDelete->attr('href', './delete/?cat_id=' . $cat->id);
             $buttonDelete->addClass('InputfieldButtonLink');
 
             $table->row([
-                '<a href="./edit?id=' . $cat->id . '">' . $cat->headline . "</a>",
-                '<input type="checkbox"' . $checked . ' disabled>',
+                '<a href="./edit?cat_id=' . $cat->id . '">' . $cat->headline . "</a>",
+                $buttonDelete->render(),
+            ]);
+        }
+
+        return $table->render();
+    }
+
+    /**
+     * @return mixed
+     * @throws WirePermissionException
+     */
+    private function renderTableSubCategories() : mixed
+    {
+        $table = $this->modules->get('MarkupAdminDataTable');
+
+        $table->setSortable(false);
+        $table->setEncodeEntities(false);
+        $table->headerRow([__('Subcategory Name'), __('Maincategory'), __('Actions')]);
+
+        foreach ( $this->options_news->repeater_subcategories_news AS $subcat) {
+            $buttonDelete = $this->modules->get('InputfieldButton');
+            $buttonDelete->value = 'delete';
+            $buttonDelete->icon = 'trash';
+            $buttonDelete->setSmall()->setSecondary();
+            $buttonDelete->attr('href', './delete/?subcat_id=' . $subcat->id);
+            $buttonDelete->addClass('InputfieldButtonLink');
+
+            $table->row([
+                '<a href="./edit?subcat_id=' . $subcat->id . '">' . $subcat->headline . "</a>",
+                $subcat->dynamic_categories_news,
                 $buttonDelete->render(),
             ]);
         }

@@ -2,6 +2,27 @@
 
 return [
     [
+        'name' => 'int_value',
+        'type' => 'Integer',
+        'label' => 'Wieviele News sollen angezeigt werden?',
+        'tags' => 'integer',
+        'icon' => 'calculator',
+        'width' => 50,
+        'zeroNotEmpty' => 0,
+        'defaultValue' => 9,
+        'inputType' => 'text',
+    ],
+    [
+        'name' => 'checkbox_slider_option',
+        'type' => 'Checkbox',
+        'label' => 'Sollen die News als Slider angezeigt werden?',
+        'tags' => 'settings',
+        'icon' => 'Check',
+        'width' => 50,
+        'formatter' => null,
+        'inputfieldClass' => null,
+    ],
+    [
         'name' => 'checkbox_subcategory',
         'type' => 'Checkbox',
         'label' => 'Subcategory?',
@@ -60,6 +81,7 @@ return [
         'dateOutputFormat' => 'd.m.Y',
         'dateInputFormat' => 'Y-m-d',
         'defaultToday' => 1,
+        'datepicker' => 3
     ],
     [
         'name' => 'repeater_categories_news',
@@ -67,13 +89,27 @@ return [
         'label' => 'Repeater (News Kategorien)',
         'tags' => 'repeater',
         'icon' => 'Repeat',
-        'width' => 100,
+        'width' => 50,
         'depth' => 1,
         'repeaterTitle' => '{headline}',
         'loading' => 1,
         'fields' => [
             'headline',
-            'checkbox_subcategory',
+        ]
+    ],
+    [
+        'name' => 'repeater_subcategories_news',
+        'type' => 'Repeater',
+        'label' => 'Repeater (News Subkategorien)',
+        'tags' => 'repeater',
+        'icon' => 'Repeat',
+        'width' => 50,
+        'depth' => 1,
+        'repeaterTitle' => '{headline}',
+        'loading' => 1,
+        'fields' => [
+            'headline',
+            'dynamic_categories_news'
         ]
     ]
 ];

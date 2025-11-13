@@ -2,14 +2,14 @@
 
 namespace ProcessWire;
 
-class WesanoxBlog extends WireData implements Module, ConfigurableModule
+class WesanoxBlog extends WireData implements Module
 {
     public static function getModuleInfo()
     {
         return array(
             'title' => 'wesanox Blog Tool',
             'summary' => 'A little News Tool for Processwire made by wesanox.',
-            'version' => '0.1.1',
+            'version' => '0.9.1',
             'author' => 'Frittenfritze',
             'icon' => 'newspaper-o',
             'autoload' => true,
@@ -60,6 +60,15 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
     ];
 
     /**
+     * @var array $matrix_basic_items
+     */
+    protected array $matrix_basic_items = [
+        'basic_teaser_news',
+        'basic_search_news'
+    ];
+
+
+    /**
      * @throws WirePermissionException
      */
     public function __construct()
@@ -99,16 +108,30 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
         }
 
         /**
+         * add Matrix item and copy item files
+         */
+        $this->addMatrixItem($this->fields);
+
+        /**
          * create / copy the template_news.php in the templates folder
          */
         foreach($this->template_news as $template_news)
         {
+            /**
+             * Copy template files to the templates folder
+             */
             $file = $this->config->paths->WesanoxBlog . 'src/templates/template_' .  $template_news . '.php';
             $file_target = $this->config->paths->templates . 'template_' . $template_news . '.php';
 
             if (!is_file($file_target)) {
                 $this->files->copy($file, $file_target);
             }
+
+            /**
+             * Copy matrix files to the templates folder
+             */
+            $this->installMatrixBasicFiles(true);
+
 
             /**
              * @TODO we need individual templates settings for the fields (headline, text)
@@ -143,7 +166,9 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
                 $t->tags = 'Templates';
                 $t->save();
             } else {
-                $fg = $this->fieldgroups->get('template_' . $template_news);
+                $t = $this->templates->get('template_' . $template_news);
+
+                $fg = $t->fieldgroup;
                 $fg->add('dynamic_categories_news');
                 $fg->add('dynamic_subcategories_news');
                 $fg->add('date_news');
@@ -159,6 +184,9 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
 
                 $fg->add('matrix_content');
                 $fg->save();
+
+                $t->fieldgroup = $fg;
+                $t->save();
             }
         }
 
@@ -192,6 +220,7 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
                 $fg->add('matrix_basic');
                 $fg->add('tab_news');
                 $fg->add('repeater_categories_news');
+                $fg->add('repeater_subcategories_news');
                 $fg->add('tab_news_END');
                 $fg->save();
 
@@ -204,12 +233,18 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
                 $t->noParents = -1;
                 $t->save();
             } else {
-                $fg = $this->fieldgroups->get($options_news);
+                $t = $this->templates->get($options_news);
+
+                $fg = $t->fieldgroup;
                 $fg->add('matrix_basic');
                 $fg->add('tab_news');
                 $fg->add('repeater_categories_news');
+                $fg->add('repeater_subcategories_news');
                 $fg->add('tab_news_END');
                 $fg->save();
+
+                $t->fieldgroup = $fg;
+                $t->save();
             }
 
             $np = new Page();
@@ -244,13 +279,13 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
             /**
              * delete template files
              */
-            $file = $this->config->paths->templates . 'template=' . $template_news . '.php';
+            $file = $this->config->paths->templates . 'template=template_' . $template_news . '.php';
 
             if (is_file($file)) {
                 $this->files->unlink($file);
             }
 
-            $p = $this->pages->get('template=' . $template_news);
+            $p = $this->pages->get('template=template_' . $template_news);
             $p->delete();
 
             if($this->templates->get('template_' . $template_news)) {
@@ -276,55 +311,25 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
             }
         }
 
-
         /**
          * delete fields
          */
-        $this->helper_fields->deleteFields($this->fields_array);
+        $this->helper_fields->deleteFields($this->fields_array, 'matrix_basic', $this->matrix_basic_items);
     }
 
     /**
-     * Modul-Konfiguration
-     */
-    public static function getModuleConfigInputfields(array $data) : InputfieldWrapper
-    {
-        $inputfields = new InputfieldWrapper();
-
-        /**
-         * Represents a variable named $f.
-         *
-         * The purpose and type of this variable should be defined
-         * based on its usage in the application. Ensure that
-         * adequate context is provided where this variable is utilized.
-         */
-//        $f = wire('modules')->get('InputfieldCheckbox');
-//        $f->name = 'remove_language_modules';
-//        $f->label = __('Sprachmodule beim Deinstallieren automatisch entfernen');
-//        $f->description = __('Achtung: Diese Option entfernt Sprachunterstützung dauerhaft.');
-//        $f->value = 1;
-//        $f->columnWidth = 50;
-//        $f->checked = !empty($data['remove_language_modules']);
-//        $inputfields->add($f);
-//
-//        $f = wire('modules')->get('InputfieldCheckbox');
-//        $f->name = 'easy_language';
-//        $f->label = __('Sprache "Einfache Sprache" hinzufügen');
-//        $f->description = __('Fügt eine neue Sprache mit dem Namen "einfache-sprache" hinzu.');
-//        $f->value = 1;
-//        $f->columnWidth = 50;
-//        $f->checked = !empty($data['easy_language']);
-//        $inputfields->add($f);
-
-        return $inputfields;
-    }
-
-    /**
+     * init function for the module
+     *
      * @return void
+     * @throws WireException
      */
-    public function ready() : void
+    public function init():void
     {
         $this->addHookAfter('FieldtypeDynamicOptions::getSelectableOptions', $this, 'provideDynamicCategoriesNews');
         $this->addHookAfter('FieldtypeDynamicOptions::getSelectableOptions', $this, 'provideDynamicSubcategoriesNews');
+
+        $this->ajaxLoadmore();
+        $this->ajaxSearch();
     }
 
     /**
@@ -342,9 +347,7 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
 
                 if($settingsPage->repeater_categories_news) {
                     foreach ($settingsPage->repeater_categories_news as $cat) {
-                        if (!$cat->checkbox_subcategory) {
-                            $options[$cat->id] = $cat->headline;
-                        }
+                        $options[$cat->headline] = $cat->headline;
                     }
                 }
 
@@ -366,18 +369,243 @@ class WesanoxBlog extends WireData implements Module, ConfigurableModule
                 $settingsPage = $this->pages->get('template=' . $options_news);
                 $options = [];
 
-                if ($settingsPage->repeater_categories_news) {
-                    foreach ($settingsPage->repeater_categories_news as $cat) {
-                        if ($cat->checkbox_subcategory) {
-                            $options[$cat->id] = $cat->headline;
-                        }
+                if ($settingsPage->repeater_subcategories_news) {
+                    foreach ($settingsPage->repeater_subcategories_news as $subcat) {
+                        $options[$subcat->headline] = $subcat->headline;
                     }
                 }
 
-
                 $event->return = $options;
             }
-
         }
+    }
+
+    /**
+     * @param $fields
+     * @return void
+     */
+    private function addMatrixItem($fields): void
+    {
+        /**
+         * Add new item to matrix_basic
+         */
+        if($fields->get('matrix_basic')) {
+            $id_value = $fields->get('int_value')->id;
+            $id_option = $fields->get('checkbox_slider_option')->id;
+            $id_categories = $fields->get('dynamic_categories_news')->id;
+            $id_subcategories = $fields->get('dynamic_subcategories_news')->id;
+
+            $f = $fields->get('matrix_basic');
+
+            $matrix_template = $f->type->getMatrixTemplate($f);
+
+            $key_teaser = $this->helper_fields->getMatrixKey('matrix_basic') + 1;
+            $key_search = $key_teaser + 1;
+
+            $f->setArray([
+                "matrix{$key_teaser}_name"   => 'basic_teaser_news',
+                "matrix{$key_teaser}_label"  => 'News Teaser',
+                "matrix{$key_teaser}_head"   => '{matrix_label} [• {matrix_summary}]',
+                "matrix{$key_teaser}_fields" => [
+                    0 => $id_value,
+                    1 => $id_option,
+                    2 => $id_categories,
+                    3 => $id_subcategories,
+                ],
+                "matrix{$key_teaser}_sort"   => $key_teaser,
+                "matrix{$key_search}_name"   => 'basic_search_news',
+                "matrix{$key_search}_label"  => 'News Suche',
+                "matrix{$key_search}_head"   => '{matrix_label} [• {matrix_summary}]',
+                "matrix{$key_search}_fields" => [
+                    0 => $id_value,
+                ],
+                "matrix{$key_search}_sort"   => $key_search,
+            ]);
+
+            $f->save();
+
+            $matrix_template->fieldgroup->add('int_value');
+            $matrix_template->fieldgroup->add('checkbox_slider_option');
+            $matrix_template->fieldgroup->add('dynamic_categories_news');
+            $matrix_template->fieldgroup->add('dynamic_subcategories_news');
+            $matrix_template->fieldgroup->save();
+
+            $matrix_template->save();
+        }
+    }
+
+    /**
+     * Kopiert Matrix-Basic-Dateien aus dem Modul nach /site/templates/fields/matrix_basic/
+     *
+     * @param bool $overwrite true = vorhandene Dateien überschreiben
+     */
+    private function installMatrixBasicFiles(bool $overwrite = false): void
+    {
+        // Quelle: ModulA (hier beispielhaft "WesanoxBlog")
+        $srcBase = $this->config->paths->WesanoxBlog . 'src/fields/matrix_basic/';
+
+        // Ziel: /site/templates/fields/matrix_basic/
+        $tplPath   = $this->config->paths->templates;
+        $fieldsDir = $tplPath . 'fields/';
+        $dstBase   = $fieldsDir . 'matrix_basic/';
+
+        // 1) Zielordner sicherstellen
+        if(!is_dir($fieldsDir)) {
+            $this->files->mkdir($fieldsDir, true);
+        }
+        if(!is_dir($dstBase)) {
+            $this->files->mkdir($dstBase, true);
+        }
+
+        // 2) Für jedes Item den kompletten Ordner kopieren
+        foreach((array) $this->matrix_basic_items as $item) {
+
+            $srcDir = rtrim($srcBase . $item, '/') . '/';
+            $dstDir = rtrim($dstBase . $item, '/') . '/';
+
+            if(!is_dir($srcDir)) {
+                $this->log->save('matrix-copy', "Quelle fehlt: {$srcDir}");
+                continue;
+            }
+
+            // Zielordner anlegen
+            if(!is_dir($dstDir)) {
+                $this->files->mkdir($dstDir, true);
+            }
+
+            // Rekursiv kopieren
+            $this->copyDirRecursive($srcDir, $dstDir, $overwrite);
+            $this->log->save('matrix-copy', "Kopiert: {$srcDir} → {$dstDir}" . ($overwrite ? ' (overwrite)' : ''));
+        }
+    }
+
+    /**
+     * Rekursives Kopieren eines Verzeichnisses mit PW-Bordmitteln
+     */
+    private function copyDirRecursive(string $src, string $dst, bool $overwrite = false): void
+    {
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach($it as $node) {
+            $relPath = substr($node->getPathname(), strlen($src)); // relativer Pfad ab $src
+            $target  = $dst . $relPath;
+
+            if($node->isDir()) {
+                if(!is_dir($target)) {
+                    $this->files->mkdir($target, true);
+                }
+                continue;
+            }
+
+            // Datei kopieren (ggf. überspringen, wenn vorhanden)
+            if(is_file($target) && !$overwrite) continue;
+
+            // $this->files->copy kann Dateien (und URLs) kopieren
+            $ok = $this->files->copy($node->getPathname(), $target);
+            if(!$ok) {
+                $this->log->save('matrix-copy', "Fehler beim Kopieren: {$node->getPathname()} → {$target}");
+            }
+        }
+    }
+
+    /**
+     * Load more function
+     *
+     * @return void
+     * @throws WireException
+     */
+    public function ajaxLoadmore() {
+        $this->addHook('/ajax/news/loadmore', function(HookEvent $event) {
+            if(!$this->config->ajax) return;
+
+            $html = '';
+
+            $limit = (int) $this->input->post('limit');
+            $category = (string) $this->input->post('category');
+            $subcategory = (string) $this->input->post('subcategories');
+
+            if($category != '') $category = ', dynamic_categories_news=' . $category;
+            if($subcategory != '') $subcategory = ', dynamic_subcategories_news=' . $subcategory;
+
+            $limit_max = count($this->pages->find('template=template_news,sort=date_news' . $category . $subcategory));
+
+            foreach($this->pages->find('template=template_news,sort=date_news, limit=' . $limit . $category . $subcategory) as $news)
+            {
+                $html .= '
+                    <div class="col-md-6 col-lg-4 p-3">
+                        <a class="text-black h-100" href="' . $news->url . '" aria-label="Jetzt mehr erfahren über - ' . $news->title . '">
+                            <div class="border h-100 p-3">
+                                <div class="fs-3 fw-normal py-2">
+                                    ' . $news->title . '
+                                </div>
+                                <small>' . $news->date_news . ' | ' . $news->dynamic_categories_news[0] . '</small>
+                            </div>
+                        </a>
+                    </div>
+                ';
+            }
+
+            $payload = [
+                'limit_max' => $limit_max,
+                'html' => $html
+            ];
+
+            header('Content-Type: application/json; charset=utf-8');
+            $event->return = json_encode($payload);
+        });
+    }
+
+    /**
+     *
+     *
+     * @return void
+     * @throws WireException
+     */
+    public function ajaxSearch() {
+        $this->addHook('/ajax/news/search', function(HookEvent $event) {
+            if(!$this->config->ajax) return;
+
+            $html = '';
+
+            $limit = (int) $this->input->post('limit');
+            $category = (string) $this->input->post('category');
+            $subcategory = (string) $this->input->post('subcategory');
+
+            if($category != '') $category = ', dynamic_categories_news=' . $category;
+            if($subcategory != '') $subcategory = ', dynamic_subcategories_news=' . $subcategory;
+
+            $limit_max = count($this->pages->find('template=template_news,sort=date_news' . $category . $subcategory));
+
+            if ($limit_max != 0) {
+                foreach($this->pages->find('template=template_news,sort=date_news, limit=' . $limit . $category . $subcategory) as $news)
+                {
+                    $html .= '
+                        <div class="col-md-6 col-lg-4 p-3">
+                            <a class="text-black h-100" href="' . $news->url . '" aria-label="Jetzt mehr erfahren über - ' . $news->title . '">
+                                <div class="border h-100 p-3">
+                                    <div class="fs-3 fw-normal py-2">
+                                        ' . $news->title . '
+                                    </div>
+                                    <small>' . $news->date_news . ' | ' . $news->dynamic_categories_news[0] . '</small>
+                                </div>
+                            </a>
+                        </div>
+                    ';
+                }
+            } else {
+                $html .= '<div class="text-center h3 p-3">Leider kein Ergebnis für deine Suche</div>';
+            }
+
+            $payload = [
+                'limit_max' => $limit_max,
+                'html' => $html
+            ];
+
+            header('Content-Type: application/json; charset=utf-8');
+            $event->return = json_encode($payload);
+        });
     }
 }
