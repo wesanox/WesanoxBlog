@@ -57,16 +57,7 @@ if (count($news_pages_view) != 0) : ?>
                     </div>
                     <div id="show-news-teaser" class="row">
                         <?php foreach ($news_pages_view as $news) : ?>
-                            <div class="col-md-6 col-lg-4 p-3">
-                                <a class="text-black h-100" href="<?php echo $news->url; ?>" aria-label="Jetzt mehr erfahren über - <?php echo $news->title; ?>">
-                                    <div class="border h-100 p-3">
-                                        <div class="fs-3 fw-normal py-2">
-                                            <?php echo $news->title; ?>
-                                        </div>
-                                        <small><?php echo $news->date_news; ?><?php echo ($news->dynamic_categories_news) ?  ' | ' . $news->dynamic_categories_news[0] : ''; ?></small>
-                                    </div>
-                                </a>
-                            </div>
+                                <?php wire()->include('basic_teaser_news/config/render_teaser_news_box.php'); ?>
                         <?php endforeach; ?>
                     </div>
 

@@ -267,49 +267,49 @@ class WesanoxBlog extends WireData implements Module
         /**
          * remove the settings page
          */
-        if($this->pages->get('name=options-news')) {
-            $this->pages->get('name=options-news')->delete();
-        }
+//        if($this->pages->get('name=options-news')) {
+//            $this->pages->get('name=options-news')->delete();
+//        }
 
         /**
          * remove fields from news page
          */
-        foreach($this->template_news as $template_news)
-        {
-            /**
-             * delete template files
-             */
-            $file = $this->config->paths->templates . 'template=template_' . $template_news . '.php';
-
-            if (is_file($file)) {
-                $this->files->unlink($file);
-            }
-
-            $p = $this->pages->get('template=template_' . $template_news);
-            $p->delete();
-
-            if($this->templates->get('template_' . $template_news)) {
-                $fg = $this->fieldgroups->get('template_' . $template_news);
-                $fg->deleteAll();
-                $fg->save();
-
-                $this->templates->delete($this->templates->get('template_' . $template_news));
-            }
-        }
-
-        foreach ($this->options_news as $options_news)
-        {
-            /**
-             * delete template files
-             */
-            if($this->templates->get($options_news)) {
-                $fg = $this->fieldgroups->get($options_news);
-                $fg->deleteAll();
-                $fg->save();
-
-                $this->templates->delete($this->templates->get($options_news));
-            }
-        }
+//        foreach($this->template_news as $template_news)
+//        {
+//            /**
+//             * delete template files
+//             */
+//            $file = $this->config->paths->templates . 'template=template_' . $template_news . '.php';
+//
+//            if (is_file($file)) {
+//                $this->files->unlink($file);
+//            }
+//
+//            $p = $this->pages->get('template=template_' . $template_news);
+//            $p->delete();
+//
+//            if($this->templates->get('template_' . $template_news)) {
+//                $fg = $this->fieldgroups->get('template_' . $template_news);
+//                $fg->deleteAll();
+//                $fg->save();
+//
+//                $this->templates->delete($this->templates->get('template_' . $template_news));
+//            }
+//        }
+//
+//        foreach ($this->options_news as $options_news)
+//        {
+//            /**
+//             * delete template files
+//             */
+//            if($this->templates->get($options_news)) {
+//                $fg = $this->fieldgroups->get($options_news);
+//                $fg->deleteAll();
+//                $fg->save();
+//
+//                $this->templates->delete($this->templates->get($options_news));
+//            }
+//        }
 
         /**
          * delete fields
@@ -546,6 +546,11 @@ class WesanoxBlog extends WireData implements Module
                         </a>
                     </div>
                 ';
+
+                /**
+                 * @TODO Other option to get it individuall?
+                 */
+                // $html .= $this->files->include($this->config->paths->templates . 'fields/matrix_basic/basic_search_news/config/render_search_news_box.php', array('news' => $news));
             }
 
             $payload = [
@@ -594,6 +599,11 @@ class WesanoxBlog extends WireData implements Module
                             </a>
                         </div>
                     ';
+
+                    /**
+                     * @TODO Other option to get it individuall?
+                     */
+                    // $html .= $this->files->include($this->config->paths->templates . 'fields/matrix_basic/basic_search_news/config/render_search_news_box.php', array('news' => $news));
                 }
             } else {
                 $html .= '<div class="text-center h3 p-3">Leider kein Ergebnis für deine Suche</div>';

@@ -12,7 +12,7 @@ $news_pages = wire()->pages->find('template=template_news,sort=date_news');
 if (count($news_pages) != 0) : ?>
     <div class="container">
         <div>
-            <div class="row mb-2">
+            <div class="d-flex justify-content-center mb-2">
                 <?php if ($options_news->repeater_categories_news) : ?>
                     <div class="col-lg-3 offset-lg-3 p-3">
                         <label for="dropdown-category" class="visually-hidden">Newskategorie auswählen</label>
@@ -25,7 +25,7 @@ if (count($news_pages) != 0) : ?>
                     </div>
                 <?php endif; ?>
 
-                <?php if ($options_news->repeater_subcategories_news) : ?>
+                <?php if ($options_news->repeater_subcategories_news->count() != 0) : ?>
                     <div class="col-lg-3 p-3">
                         <label for="dropdown-subcategory" class="visually-hidden">Newsunterkategorie auswählen</label>
                         <select class="btn btn-primary rounded-0 dropdown-toggle w-100 px-0" name="dropdown-subcategory" id="dropdown-subcategory" data-toggle="dropdown" aria-expanded="false">
